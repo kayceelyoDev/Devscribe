@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devscribe-postgres
+    environment:
+      POSTGRES_DB: devscribe
+      POSTGRES_USER: devscribe
+      POSTGRES_PASSWORD: devscribe
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devscribe -d devscribe"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: devscribe-redis
+    command: ["redis-server", "--requirepass", "devscribe", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "devscribe", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: devscribe-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: devscribe
+      MINIO_ROOT_PASSWORD: devscribe-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: devscribe-app
+    environment:
+      DATABASE_URL: postgresql://devscribe:devscribe@postgres:5432/devscribe?schema=public
+      REDIS_URL: redis://:devscribe@redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: devscribe
+      S3_SECRET_KEY: devscribe-secret
+      S3_BUCKET_NAME: devscribe-files
+      AUTH_SECRET: devscribe-local-auth-secret-1234567890
+      AUTH_URL: http://localhost:3000
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+      LOCAL_MODEL_NAME: qwen3:4b
+      LOCAL_EMBEDDING_MODEL: nomic-embed-text
+      GOOGLE_GENERATIVE_AI_API_KEY: ""
+      SKIP_ENV_VALIDATION: "1"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
