@@ -1,6 +1,6 @@
 FROM node:20-alpine AS base
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 COPY package*.json ./
 RUN npm ci --include=dev
 
@@ -13,7 +13,7 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 
 COPY --from=builder /app/.next/standalone .
 COPY --from=builder /app/.next/static ./.next/static
