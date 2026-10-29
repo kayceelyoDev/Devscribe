@@ -42,7 +42,7 @@ services:
       MINIO_ROOT_USER: devscribe
       MINIO_ROOT_PASSWORD: devscribe-secret
     ports:
-      - "9000:9000"
+      - "9002:9000"
       - "9001:9001"
     volumes:
       - minio_data:/data
