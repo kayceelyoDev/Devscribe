@@ -35,7 +35,9 @@ services:
     restart: unless-stopped
 
   minio:
-    image: quay.io/minio/minio:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.minio
     container_name: devscribe-minio
     command: server /data --console-address ":9001"
     environment:
